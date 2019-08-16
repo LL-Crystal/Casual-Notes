@@ -1,37 +1,38 @@
-## Welcome to GitHub Pages
+# 学习笔记
+更新中。。。
 
-You can use the [editor on GitHub](https://github.com/granstone/granstone.github.io/edit/master/README.md) to maintain and preview the content for your website in Markdown files.
+## Java基础
+基础
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+设计模式
 
-### Markdown
+JVM
+* [**Jvm深度探索**](java基础/jvm/jvm.md)
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+## Web框架
 
-```markdown
-Syntax highlighted code block
+## 大数据
+HDFS
 
-# Header 1
-## Header 2
-### Header 3
+Spark
 
-- Bulleted
-- List
+Elasticsearch
+* [Elasticsearch常用命令](大数据/es/es_command.md)
+* [快速理解Elasticsearch分片](大数据/es/es_shard_distribution.md)
+* [Elasticsearch数据写入过程](大数据/es/es_data_write.md)
+* [ElasticsearchJVM调优](大数据/es/es_jvm.md)
 
-1. Numbered
-2. List
+Hive
+* [HiveSQL解析原理](大数据/hive/hive_sql.md)
 
-**Bold** and _Italic_ and `Code` text
+## 数据库
 
-[Link](url) and ![Image](src)
-```
+## 操作系统
 
-For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
+## 计算机网络
 
-### Jekyll Themes
+## 数据结构
 
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/granstone/granstone.github.io/settings). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
+## 工具
 
-### Support or Contact
-
-Having trouble with Pages? Check out our [documentation](https://help.github.com/categories/github-pages-basics/) or [contact support](https://github.com/contact) and we’ll help you sort it out.
+## 问题
