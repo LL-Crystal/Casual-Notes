@@ -223,6 +223,7 @@ concurrent有三个包，包含了大概五部分内容
 
 #### 5、同步辅助类
 
+
 synchronized缺陷
 前面我们说过synchronized的线程释放锁的情况有两种:
 代码块或者同步方法执行完毕
