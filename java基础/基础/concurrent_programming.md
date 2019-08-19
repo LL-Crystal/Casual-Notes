@@ -247,7 +247,7 @@ public final boolean compareAndSet(int expect, int update) {
 
 atomicXXX使用volatile保持线程之间对值的可见性，以及单值原子操作。但是注意单值原子性不代表CPU之间的同步操作，CPU1对值的修改和CPU2对值的修改还是可以同时的。
 
-![cup_cache](image/cup_cache.jpg)
+![cup_cache](image/cup_cache.png)
 
 由此可知上面的自增操作是不具备原子性的，它包括读取变量的原始值，进行加1操作，写入内存，这里的volatile只能保证值+1操作这一个指令是原子的，三个子操作可能依然会分开执行，多线程对volatile变量操作依然会出现问题
 所以需要基于CAS（乐观锁机制）实现三个操作的原子性
@@ -387,20 +387,246 @@ LockSupport.park()和unpark()，与object.wait()和notify()的区别
 
 2、Lock框架
 
-Lock框架的核心是Lock和Condition两个接口
+>Lock框架的核心是Lock和Condition两个接口
+---
 
 锁的实现
 
-Lock的机制依然是依赖volatile和CAS乐观锁机制, 看下ReentrantLock的实现
+>Lock的机制依然是依赖volatile和CAS乐观锁机制, ReentrantLock的实现为例，ReentrantLock内部使用同步器Sync来实现，可以看看lock方法最终会调用Sync的lock
+---
 
+1、非公平实现NonfairSync
+```
+//这个值在Sync的父类中,通过偏移得到,需要注意的是这里的volatile
+private volatile int state; 
 
+final void lock() {
+    if (compareAndSetState(0, 1))//CAS操作,公平的方式没有这个操作,直接进入acquire
+        setExclusiveOwnerThread(Thread.currentThread());
+    else
+        acquire(1);
+}
+```
+
+2、公平实现FairSync
+```
+final void lock() {
+    acquire(1);
+}
+```
+
+>acquire之前非公平的实现会尝试一次compareAndSetState（CAS），如果此时正好有释放的锁则不从队列头取线程而是直接获得锁（独占setExclusiveOwnerThread），不在进入队列了（所以不公平的嘛）
+---
 
 获取锁
 
+无法acquire到授权，就必须等待, 通过一个双向链表来存储阻塞的线程
+```
+public final void acquire(int arg) {
+    if (!tryAcquire(arg) &&
+        acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
+        selfInterrupt();
+}
+```
+
 调度
+
+>ReentrantLock的Sync类继承AbstractQueuedSynchronizer，通过名字（队列同步器）你大致能知道他是通过对线程进行列队的方式进行同步和调度的。
+Sync的上面两个实现NonfairSync和FairSync，分别实现非公平锁和公平所机制机制。
+---
+
+重入锁实现
+
+```
+// 非公平锁的获取方法
+final boolean nonfairTryAcquire(int acquires) {
+    // 首先获取当前线程
+    final Thread current = Thread.currentThread();
+    // 获取锁的状态
+    int c = getState();
+    // 如果为0则继续通过原子操作设置state，如果成功则设置获取锁的线程为当前线程并返回成功
+    if (c == 0) {
+	if (compareAndSetState(0, acquires)) {
+	    setExclusiveOwnerThread(current);
+	    return true;
+	}
+    }
+    // 否则锁已经被某个线程获取到，判断是否为当前线程
+    else if (current == getExclusiveOwnerThread()) {
+	// 如果是当前线程则将state+1，可以看出锁的可重入性就体现在这里
+	int nextc = c + acquires;
+	if (nextc < 0) // overflow
+	    throw new Error("Maximum lock count exceeded");
+	// 设置状态，并返回成功
+	setState(nextc);
+	return true;
+    }
+    // 否则该锁已经被其他线程占用，因此后面需要考虑阻塞该线程。
+    return false;
+}
+```
+```
+// 公平锁的获取
+protected final boolean tryAcquire(int acquires) {
+    final Thread current = Thread.currentThread();
+    int c = getState();
+    if (c == 0) {
+        if (!hasQueuedPredecessors() &&
+            compareAndSetState(0, acquires)) {
+            setExclusiveOwnerThread(current);
+            return true;
+        }
+    }
+    // 否则锁已经被某个线程获取到，判断是否为当前线程
+    else if (current == getExclusiveOwnerThread()) {
+    // 如果是当前线程则将state+1，可以看出锁的可重入性就体现在这里
+        int nextc = c + acquires;
+        if (nextc < 0)
+            throw new Error("Maximum lock count exceeded");
+        setState(nextc);
+        return true;
+    }
+    return false;
+}
+```
 
 #### 3、线程池
 
+```
+public void execute(Runnable command) {
+    if (command == null)
+        throw new NullPointerException();
+    int c = ctl.get();
+    // 根据ctl的值, 获取线程池中的有效线程数 workerCount, 如果 workerCount小于核心线程数 corePoolSize
+    if (workerCountOf(c) < corePoolSize) {
+        // 调用addWorker()方法, 将核心线程数corePoolSize设置为线程池中线程数的上限值, 将此次提交的任务command作为参数传递进去, 
+        // 然后再次获取线程池中的有效线程数 workerCount, 如果 workerCount依然小于核心
+        // 线程数 corePoolSize, 就创建并启动一个线程, 然后返回 true结束整个
+        // execute()方法. 如果此时的线程池已经关闭, 或者此时再次获取到的有
+        // 效线程数 workerCount已经 >= 核心线程数 corePoolSize, 就再继续执
+        // 行后边的内容. 
+        if (addWorker(command, true))
+            return;
+        c = ctl.get();
+    }
+    
+    /***** 分析1 ****/
+    // 如果情况1的判断条件不满足, 则直接进入情况2. 如果情况1的判断条件满足, 
+    // 但情况1中的 addWorker()方法返回 false, 也同样会进入情况2.  
+    // 总之, 进入情况2时, 线程池要么已经不处于RUNNING(运行)状态, 要么仍处于RUNNING
+    // (运行)状态但线程池内的有效线程数 workerCount >= 核心线程数 corePoolSize
+    /***** 分析2 ****/
+    // 经过上一段分析可知, 进入这个情况时, 线程池要么已经不处于RUNNING(运行)
+    // 状态, 要么仍处于RUNNING(运行)状态但线程池内的有效线程数 workerCount
+    // 已经 >= 核心线程数 corePoolSize
+    // 如果线程池未处于RUNNING(运行)状态, 或者虽然处于RUNNING(运行)状态但线程池
+    // 内的阻塞队列 workQueue已满, 则跳过此情况直接进入情况3.
+    // 如果线程池处于RUNNING(运行)状态并且线程池内的阻塞队列 workQueue未满, 
+    // 则将提交的任务 command 添加到阻塞队列 workQueue中.
+    if (isRunning(c) && workQueue.offer(command)) {
+         int recheck = ctl.get();
+         // 再次判断线程池此时的运行状态. 如果发现线程池未处于 RUNNING(运行)
+         // 状态, 由于先前已将任务 command加入到阻塞队列 workQueue中了, 所以需
+         // 要将该任务从 workQueue中移除. 一般来说, 该移除操作都能顺利进行. 
+         // 所以一旦移除成功, 就再调用 handler的 rejectedExecution()方法, 根据
+         // 该 handler定义的拒绝策略, 对该任务进行处理. 当然, 默认的拒绝策略是
+         // AbortPolicy, 也就是直接抛出 RejectedExecutionException 异常, 同时也
+         // 结束了整个 execute()方法的执行.
+         if (! isRunning(recheck) && remove(command))
+            reject(command);
+         // 再次计算线程池内的有效线程数 workerCount, 一旦发现该数量变为0, 
+         // 就将线程池内的线程数上限值设置为最大线程数 maximumPoolSize, 然后
+         // 只是创建一个线程而不去启动它, 并结束整个 execute()方法的执行.
+         else if (workerCountOf(recheck) == 0)
+            addWorker(null, false);
+         // 如果线程池处于 RUNNING(运行)状态并且线程池内的有效线程数大于0, 那么就直接结束该 
+         // execute()方法, 被添加到阻塞队列中的该任务将会在未来的某个时刻被执行.
+    }
+    /********************************* 情况3 ************************************/
+
+    /***** 分析3 ****/
+    // 如果该方法能够执行到这里, 那么结合分析1和分析2可知, 线程池此时必定是
+    // 下面两种情况中的一种:
+    // ① 已经不处于RUNNING(运行)状态
+    // ② 处于RUNNING(运行)状态, 并且线程池内的有效线程数 workerCount已经
+    //   >= 核心线程数 corePoolSize, 并且线程池内的阻塞队列 workQueue已满
+
+    // 再次执行addWorker() 方法, 将线程池内的线程数上限值设置为最大线程数 
+    // maximumPoolSize, 并将提交的任务 command作为被执行的对象, 尝试创建并
+    // 启动一个线程来执行该任务. 如果此时线程池的状态为如下两种中的一种, 
+    // 就会触发 handler的 rejectedExecution()方法来拒绝该任务的执行:
+    // ① 未处于RUNNING(运行)状态.
+    // ② 处于RUNNING(运行)状态, 但线程池内的有效线程数已达到本次设定的最大
+    // 线程数 (另外根据分析3可知, 此时线程池内的阻塞队列 workQueue已满).
+
+    // 如果线程池处于 RUNNING(运行)状态, 但有效线程数还未达到本次设定的最大
+    // 线程数, 那么就会尝试创建并启动一个线程来执行任务 command. 如果线程的
+    // 创建和启动都很顺利, 那么就直接结束掉该 execute()方法; 如果线程的创建或
+    // 启动失败, 则同样会触发 handler的 rejectedExecution()方法来拒绝该
+    // 任务的执行并结束掉该 execute()方法.
+    else if (!addWorker(command, false))
+        reject(command);
+}
+```
+
 #### 4、并发集合
 
+- 非阻塞式安全列表 - ConcurrentLinkedDeque
+- 阻塞式安全列表 - LinkedBlockingDeque
+- 优先级排序阻塞式安全列表 - PriorityBlockingQueue
+- 延迟元素线程安全列表 - DelayQueue
+- ConcurrentHashMap
+
 #### 5、同步辅助类
+
+- CountDownLatch
+- CyclicBarrier
+- Semaphore
+
+1、CountDownLatch
+
+>CountDownLatch实现维护一个计数器，这个类有两个核心方法await和countDown，一般被用在线程等待Ｎ个线程的情况。
+调用await方法会使当前线程阻塞等待，直到这个计数器归零才会继续被唤醒执行。
+典型的用法是，一个线程Ａ调用await（很多等待方法都被定义为await，区别object.wait()～），等待其他Ｎ个线程完成操作，每完成一个操作就countDown一次，当所有任务都完成之后线程Ａ继续执行。
+---
+```
+class Driver2 { // ...
+   void main() throws InterruptedException {
+     CountDownLatch doneSignal = new CountDownLatch(N);
+     Executor e = ...
+     for (int i = 0; i < N; ++i) // create and start threads
+       e.execute(new WorkerRunnable(doneSignal, i));
+     doneSignal.await();　// wait for all to finish
+   }
+ }
+
+ class WorkerRunnable implements Runnable {
+   private final CountDownLatch doneSignal;
+   private final int i;
+   WorkerRunnable(CountDownLatch doneSignal, int i) {
+      this.doneSignal = doneSignal;
+      this.i = i;
+   }
+   public void run() {
+      try {
+        doWork(i);
+        //工作线程执行完之后countDown一次
+        doneSignal.countDown();
+      } catch (InterruptedException ex) {} // return;
+   }
+
+   void doWork() { ... }
+ }
+```
+
+2、CyclicBarrier
+
+>CountDownLatch是等待计数器归零，而CyclicBarrier则是等待其他线程进入等待状态。
+假设你有一个线程，需要等待其他５个线程进入等待状态，然后继续执行，你就可以使用这个东西。
+---
+
+3、Semaphore
+
+>Semaphore是信号量的意思，和操作系统书籍里的信号量语义层面是一样的。
+Semaphore有两个操作UP(+1)和DOWN(-1)，或者说P操作(-1)和V(+1)操作。
+---
