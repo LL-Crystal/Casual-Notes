@@ -219,27 +219,188 @@ concurrent有三个包，包含了大概五部分内容
 - 并发集合部分：ConcurrentMap，BlockingQueue等
 - 同步辅助类：CountDownLatch，CyclicBarrier，Semaphore等
 
+线程池、并发集合、同步辅助类是建立在LOCK框架和atomic的基础之上的，我们有了锁和原子基本类型数据操作之后就能演化出很多复杂的东西
+
 #### 1、原子类
+看一个典型的AtomicInteger，一个提供原子操作的Integer类，通过线程安全的方式操作加减
+
+AtomicInteger实现乐观锁
+
+```
+public final int incrementAndGet() {
+        // 自旋，循环不断尝试compareAndSet操作（乐观锁），典型的乐观锁思路
+        for (;;) {
+            int current = get();
+            int next = current + 1;
+            if (compareAndSet(current, next))
+                return next;
+        }
+}
+```
+
+```
+public final boolean compareAndSet(int expect, int update) {
+　　　　 // unsafe.compareAndSwapInt 方法是一个native方法，使用CPU原子指令CAS实现
+        return unsafe.compareAndSwapInt(this, valueOffset, expect, update);
+}
+```
+
+atomicXXX使用volatile保持线程之间对值的可见性，以及单值原子操作。但是注意单值原子性不代表CPU之间的同步操作，CPU1对值的修改和CPU2对值的修改还是可以同时的。
+
+![cup_cache](image/cup_cache.jpg)
+
+由此可知上面的自增操作是不具备原子性的，它包括读取变量的原始值，进行加1操作，写入内存，这里的volatile只能保证值+1操作这一个指令是原子的，三个子操作可能依然会分开执行，多线程对volatile变量操作依然会出现问题
+所以需要基于CAS（乐观锁机制）实现三个操作的原子性
+
+jdk1.8 incrementAndGet的实现改成用unsafe来实现了
+```
+public final int incrementAndGet() {
+    // 使用CPU原子指令CAS实现
+    return unsafe.getAndAddInt(this, valueOffset, 1) + 1;
+}
+```
+
+看一个AtomicInteger的实例，摘自IT宅
+```
+import java.io.File;
+import java.io.FileFilter;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class AtomicTest {
+
+    private static long randomTime() {
+        return (long) (Math.random() * 1000);
+    }
+
+    public static void main(String[] args) {
+
+        // 阻塞队列，能容纳100个文件
+        final BlockingQueue<File> queue = new LinkedBlockingQueue<>(100);
+        // 线程池
+        final ExecutorService exec = Executors.newFixedThreadPool(5);
+
+        final File root = new File("D:\\ISO");
+        // 完成标志
+        final File exitFile = new File("");
+        // 原子整型，读个数
+        // AtomicInteger可以在并发情况下达到原子化更新，避免使用了synchronized，而且性能非常高。
+        final AtomicInteger rc = new AtomicInteger();
+        // 原子整型，写个数
+        final AtomicInteger wc = new AtomicInteger();
+
+        // 读线程
+        Runnable read = new Runnable() {
+
+            public void run() {
+                scanFile(root);
+                scanFile(exitFile);
+            }
+
+            void scanFile(File file) {
+                if (file.isDirectory()) {
+                    File[] files = file.listFiles(new FileFilter() {
+                        public boolean accept(File pathname) {
+                            return pathname.isDirectory() || pathname.getPath().endsWith(".iso");
+                        }
+                    });
+                    assert files != null;
+                    for (File one : files)
+                        scanFile(one);
+                } else {
+                    try {
+                        // 原子整型的incrementAndGet方法，以原子方式将当前值加 1，返回更新的值
+                        int index = rc.incrementAndGet();
+                        System.out.println("Read0: " + index + " " + file.getPath());
+                        // 添加到阻塞队列中
+                        queue.put(file);
+                    } catch (InterruptedException ignored) {
+                    }
+                }
+            }
+        };
+        // submit方法提交一个 Runnable 任务用于执行，并返回一个表示该任务的 Future。
+        exec.submit(read);
+
+        // 四个写线程
+        for (int index = 0; index < 4; index++) {
+            // write thread
+            final int num = index;
+            Runnable write = new Runnable() {
+                String threadName = "Write" + num;
+
+                public void run() {
+                    while (true) {
+                        try {
+                            Thread.sleep(randomTime());
+                            // 原子整型的incrementAndGet方法，以原子方式将当前值加 1，返回更新的值
+                            int index = wc.incrementAndGet();
+                            // 获取并移除此队列的头部，在元素变得可用之前一直等待（如果有必要）。
+                            File file = queue.take();
+                            // 队列已经无对象
+                            if (file == exitFile) {
+                                // 再次添加"标志"，以让其他线程正常退出
+                                queue.put(exitFile);
+                                break;
+                            }
+                            System.out.println(threadName + ": " + index + " " + file.getPath());
+                        } catch (InterruptedException ignored) {
+                        }
+                    }
+                }
+
+            };
+            exec.submit(write);
+        }
+        exec.shutdown();
+    }
+}
+```
 
 #### 2、LOCK
+
+1、一些比较
+
+前面我们说过synchronized的线程释放锁的情况有两种:
+
+- 代码块或者同步方法执行完毕
+- 代码块或者同步方法出现异常有jvm自动释放锁
+
+>从上面的synchronized释放锁可以看出，只有synchronized代码块执行完毕或者异常才会释放，如果代码块中的程序因为IO原因阻塞了，那么线程将永远不会释放锁，但是此时另外的线程还要执行其他的程序，极大的影响了程序的执行效率，
+现在我们需要一种机制能够让线程不会一直无限的等待下去，能够响应中断，这个通过lock就可以办到。另外如果有一个程序，包含多个读线程和一个写线程，我们可以知道synchronized只能一个一个线程的执行，但是我们需要多个读线程同时进行读，那么使用synchronized肯定是不行的，但是我们使用lock同样可以办到
+ ---
+ 
+LockSupport与ReentrantLock的区别
+ 
+>LockSupport是基于unsafe类的操作，但是LockSupport是阻塞的，它不会发生Thread.suspend 和 Thread.resume所可能引发的死锁问题。
+JDK1.8后，ReentrantLock及ReentrantReadWriteLock是基于AQS实现的，AQS内部也使用了unsafe类进行操作，而AQS是非阻塞机制。
+---
+
+LockSupport.park()和unpark()，与object.wait()和notify()的区别
+
+>主要的区别应该说是它们面向的对象不同。阻塞和唤醒是对于线程来说的，LockSupport的park/unpark更符合这个语义，以线程作为方法的参数， 语义更清晰，使用起来也更方便。
+而wait/notify的实现使得阻塞/唤醒对线程本身来说是被动的，要准确的控制哪个线程、什么时候阻塞/唤醒很困难， 要不随机唤醒一个线程（notify）要不唤醒所有的（notifyAll）
+---
+
+2、Lock框架
+
+Lock框架的核心是Lock和Condition两个接口
+
+锁的实现
+
+Lock的机制依然是依赖volatile和CAS乐观锁机制, 看下ReentrantLock的实现
+
+
+
+获取锁
+
+调度
 
 #### 3、线程池
 
 #### 4、并发集合
 
 #### 5、同步辅助类
-
-
-synchronized缺陷
-前面我们说过synchronized的线程释放锁的情况有两种:
-代码块或者同步方法执行完毕
-代码块或者同步方法出现异常有jvm自动释放锁
-从上面的synchronized释放锁可以看出，只有synchronized代码块执行完毕或者异常才会释放，如果代码块中的程序因为IO原因阻塞了，那么线程将永远不会释放锁，但是此时另外的线程还要执行其他的程序，极大的影响了程序的执行效率，现在我们需要一种机制能够让线程不会一直无限的等待下去，能够响应中断，这个通过lock就可以办到
-另外如果有一个程序，包含多个读线程和一个写线程，我们可以知道synchronized只能一个一个线程的执行，但是我们需要多个读线程同时进行读，那么使用synchronized肯定是不行的，但是我们使用lock同样可以办到
-
-JDK1.8后，ReentrantLock及ReentrantReadWriteLock是基于AQS实现的，AQS内部使用了unsafe类进行操作；LockSupport也是基于unsafe类操作。可以说LockSupport也是阻塞的，但是不会发生Thread.suspend 和 Thread.resume所可能引发的死锁问题。而AQS是非阻塞机制。
-LockSupport.park()和unpark()，与object.wait()和notify()的区别？
-主要的区别应该说是它们面向的对象不同。阻塞和唤醒是对于线程来说的，LockSupport的park/unpark更符合这个语义，以“线程”作为方法的参数， 语义更清晰，使用起来也更方便。而wait/notify的实现使得“阻塞/唤醒对线程本身来说是被动的，要准确的控制哪个线程、什么时候阻塞/唤醒很困难， 要不随机唤醒一个线程（notify）要不唤醒所有的（notifyAll）
-
-
-
