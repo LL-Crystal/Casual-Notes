@@ -247,7 +247,7 @@ public final boolean compareAndSet(int expect, int update) {
 
 atomicXXX使用volatile保持线程之间对值的可见性，以及单值原子操作。但是注意单值原子性不代表CPU之间的同步操作，CPU1对值的修改和CPU2对值的修改还是可以同时的。
 
-![cup_cache](image/cup_cache.png)
+![cpu_cache](image/cpu_cache.png)
 
 由此可知上面的自增操作是不具备原子性的，它包括读取变量的原始值，进行加1操作，写入内存，这里的volatile只能保证值+1操作这一个指令是原子的，三个子操作可能依然会分开执行，多线程对volatile变量操作依然会出现问题
 所以需要基于CAS（乐观锁机制）实现三个操作的原子性
@@ -387,15 +387,16 @@ LockSupport.park()和unpark()，与object.wait()和notify()的区别
 
 2、Lock框架
 
->Lock框架的核心是Lock和Condition两个接口
----
+Lock框架的核心是Lock和Condition两个接口
 
 锁的实现
 
->Lock的机制依然是依赖volatile和CAS乐观锁机制, ReentrantLock的实现为例，ReentrantLock内部使用同步器Sync来实现，可以看看lock方法最终会调用Sync的lock
+>Lock的机制依然是依赖volatile和CAS乐观锁机制, ReentrantLock的实现为例。
+ReentrantLock内部使用同步器Sync来实现，可以看看lock方法最终会调用Sync的lock
 ---
 
 1、非公平实现NonfairSync
+
 ```
 //这个值在Sync的父类中,通过偏移得到,需要注意的是这里的volatile
 private volatile int state; 
@@ -409,18 +410,21 @@ final void lock() {
 ```
 
 2、公平实现FairSync
+
 ```
 final void lock() {
     acquire(1);
 }
 ```
 
->acquire之前非公平的实现会尝试一次compareAndSetState（CAS），如果此时正好有释放的锁则不从队列头取线程而是直接获得锁（独占setExclusiveOwnerThread），不在进入队列了（所以不公平的嘛）
+>acquire之前非公平的实现会尝试一次compareAndSetState（CAS），如果此时正好有释放的锁则不从队列头取线程而是直接获得锁（独占setExclusiveOwnerThread），
+不在进入队列了（所以不公平的嘛）
 ---
 
 获取锁
 
 无法acquire到授权，就必须等待, 通过一个双向链表来存储阻塞的线程
+
 ```
 public final void acquire(int arg) {
     if (!tryAcquire(arg) &&
@@ -465,6 +469,7 @@ final boolean nonfairTryAcquire(int acquires) {
     return false;
 }
 ```
+
 ```
 // 公平锁的获取
 protected final boolean tryAcquire(int acquires) {
@@ -585,10 +590,10 @@ public void execute(Runnable command) {
 
 1、CountDownLatch
 
->CountDownLatch实现维护一个计数器，这个类有两个核心方法await和countDown，一般被用在线程等待Ｎ个线程的情况。
-调用await方法会使当前线程阻塞等待，直到这个计数器归零才会继续被唤醒执行。
+>CountDownLatch实现维护一个计数器，这个类有两个核心方法await和countDown，一般被用在线程等待Ｎ个线程的情况。调用await方法会使当前线程阻塞等待，直到这个计数器归零才会继续被唤醒执行。
 典型的用法是，一个线程Ａ调用await（很多等待方法都被定义为await，区别object.wait()～），等待其他Ｎ个线程完成操作，每完成一个操作就countDown一次，当所有任务都完成之后线程Ａ继续执行。
 ---
+
 ```
 class Driver2 { // ...
    void main() throws InterruptedException {
