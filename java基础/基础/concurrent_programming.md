@@ -495,6 +495,95 @@ protected final boolean tryAcquire(int acquires) {
 }
 ```
 
+ReentrantLock实现生产者消费者
+
+```
+public class ConcrateDemo {
+    public static void main(String []args){
+        Resource resource = new Resource();
+        ProduceThread produceThread = new ProduceThread(resource);
+        ConsumeThread consumeThread = new ConsumeThread(resource);
+        //四个生产者
+        new Thread(produceThread).start();
+        new Thread(produceThread).start();
+        new Thread(produceThread).start();
+        new Thread(produceThread).start();
+        //四个消费者
+        new Thread(consumeThread).start();
+        new Thread(consumeThread).start();
+        new Thread(consumeThread).start();
+        new Thread(consumeThread).start();
+    }
+}
+
+class Resource{
+    private final int MAX_SIZE = 10;
+    private LinkedList<Object> list = new LinkedList<Object>();
+    private Lock lock = new ReentrantLock();
+    private Condition fullCondition = lock.newCondition();
+    private Condition emptyCondition = lock.newCondition();
+
+    public void produce(){
+        //如果生产满了，则就唤醒消费者
+        lock.lock();
+        while(list.size() == MAX_SIZE){
+            System.out.println("生产满了，暂时无法生产：" + list.size());
+            emptyCondition.signal();
+            try {
+                fullCondition.await();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        list.add(new Object());
+        System.out.println(Thread.currentThread().getName() + "生产新产品，共有：" + list.size());
+        lock.unlock();
+    }
+
+    public void consume(){
+        lock.lock();
+        while(list.size() == 0){
+            System.out.println("没有物品了，需要通知生产了");
+            fullCondition.signal();
+            try {
+                emptyCondition.await();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        System.out.println(Thread.currentThread().getName() + "消费产品，共有：" + list.size());
+        list.remove();
+        lock.unlock();
+    }
+}
+
+class ProduceThread implements Runnable{
+    private Resource resource;
+
+    public ProduceThread(Resource resource){
+        this.resource = resource;
+    }
+
+    public void run() {
+        for(;;)
+        resource.produce();
+    }
+}
+
+class ConsumeThread implements Runnable{
+    private Resource resource;
+
+    public ConsumeThread(Resource resource){
+        this.resource = resource;
+    }
+
+    public void run() {
+        for(;;)
+        resource.consume();
+    }
+}
+```
+
 #### 3、线程池
 
 ```
@@ -635,3 +724,33 @@ class Driver2 { // ...
 >Semaphore是信号量的意思，和操作系统书籍里的信号量语义层面是一样的。
 Semaphore有两个操作UP(+1)和DOWN(-1)，或者说P操作(-1)和V(+1)操作。
 ---
+
+Semaphore用来控制访问某资源的线程数,比如数据库连接.假设有这个的需求，读取几万个文件的数据到数据库中，由于文件读取是IO密集型任务，可以启动几十个线程并发读取，但是数据库连接数只有20个，这时就必须控制最多只有20个线程能够拿到数据库连接进行操作。这个时候，就可以使用Semaphore做流量控制。
+
+```
+public class Semaphore {
+    private static final int COUNT = 80;
+    private static Executor executor =  Executors.newFixedThreadPool(COUNT);
+    private static Semaphore semaphore = new Semaphore(20);
+    public static void main(String[] args) {
+        for (int i=0; i< COUNT; i++) {
+            executor.execute(new ThreadTest.Task());
+        }
+    }
+
+    static class Task implements Runnable {
+        @Override
+        public void run() {
+            try {
+                //读取文件中...
+                semaphore.acquire();
+                // 存储数据中...
+                semaphore.release();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } finally {
+            }
+        }
+    }
+}
+```
