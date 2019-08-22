@@ -6,7 +6,9 @@
 
 基础
 
-* [**java访问控制符**](java基础/基础/access_control.md)
+* [**Java访问控制符**](java基础/基础/access_control.md)
+
+* [**Java ThreadLocal浅析**](java基础/基础/thread_local.md)
 
 * [**SimpleDateFormat线程安全问题**](java基础/基础/simple_date_format.md)
 
