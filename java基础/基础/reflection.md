@@ -96,7 +96,7 @@ Apple apple = (Apple)constructor.newInstance("红富士", 15);
 
 3、通过反射获取类属性、方法、构造器
 
--通过 Class 对象的 getFields() 方法可以获取 Class 类的属性，但无法获取私有属性
+- 通过 Class 对象的 getFields() 方法可以获取 Class 类的属性，但无法获取私有属性
 ```
 Class clz = Apple.class;
 Field[] fields = clz.getFields();
