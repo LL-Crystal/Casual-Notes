@@ -46,6 +46,10 @@ Hive
 
 ## 数据库
 
+Redis
+
+* [**Redis分布式锁的实现**](数据库/redis/distributed_lock.md)
+
 ## 操作系统
 
 ## 计算机网络
