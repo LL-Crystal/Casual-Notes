@@ -128,7 +128,7 @@ Redis对SETNX的官网说明，Redis官网文档建议用Set命令来代替，�
 
 如果客户端长期阻塞导致锁过期
 
-![redis1](image/redis1.jpg)
+![redis1](image/redis1.png)
 
 >解释一下这个时序图，客户端1在获得锁之后发生了很长时间的GC pause，在此期间，它获得的锁过期了，
 而客户端2获得了锁。当客户端1从GC pause中恢复过来的时候，它不知道自己持有的锁已经过期了，它依然向共享资源（上图中是一个存储服务）发起了写数据请求，
@@ -137,7 +137,7 @@ Redis对SETNX的官网说明，Redis官网文档建议用Set命令来代替，�
 
 如何解决这个问题呢?引入了fencing token的概念：
 
-![redis2](image/redis2.jpg)
+![redis2](image/redis2.png)
 
 >客户端1先获取到的锁，因此有一个较小的fencing token，等于33，而客户端2后获取到的锁，有一个较大的fencing token，等于34。
 客户端1从GC pause中恢复过来之后，依然是向存储服务发送访问请求，但是带了fencing token = 33。
