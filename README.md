@@ -48,6 +48,8 @@ Hive
 
 Redis
 
+* [**Redis基础**](数据库/redis/data_type.md)
+
 * [**Redis分布式锁的实现的讨论**](数据库/redis/distributed_lock.md)
 
 ## 操作系统
