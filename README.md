@@ -42,7 +42,7 @@ Elasticsearch
 
 * [**Elasticsearch数据写入过程**](大数据/es/es_data_write.md)
 
-* [**ElasticsearchJVM调优**](大数据/es/es_jvm.md)
+* [**关于Elasticsearch调优的一些想法**](大数据/es/es_jvm.md)
 
 Hive
 
