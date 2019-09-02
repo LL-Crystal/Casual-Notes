@@ -1,4 +1,4 @@
-# Java并发编程探索
+# Java并发编程深度探索-基础
 
 ### Java并发分类
 Java并发分为进程内的并发与进程之间的并发
@@ -372,6 +372,18 @@ public class AtomicTest {
 >从上面的synchronized释放锁可以看出，只有synchronized代码块执行完毕或者异常才会释放，如果代码块中的程序因为IO原因阻塞了，那么线程将永远不会释放锁，但是此时另外的线程还要执行其他的程序，极大的影响了程序的执行效率，
 现在我们需要一种机制能够让线程不会一直无限的等待下去，能够响应中断，这个通过lock就可以办到。另外如果有一个程序，包含多个读线程和一个写线程，我们可以知道synchronized只能一个一个线程的执行，但是我们需要多个读线程同时进行读，那么使用synchronized肯定是不行的，但是我们使用lock同样可以办到
  ---
+ 
+synchronized的优势
+
+>synchronized是在JVM层面上实现的，不但可以通过一些监控工具监控synchronized的锁定，而且在代码执行时出现异常，JVM会自动释放锁定，
+但是使用Lock则不行，lock是通过代码实现的，要保证锁定一定会被释放，就必须将unLock()放到finally{}中
+---
+
+锁绑定多个条件
+
+>锁绑定多个条件是指一个ReentrantLock对象可以同时绑定多个Condition对象，
+而在synchronized中，锁对象的wait（）和notify（）或notifyAll（）方法可以实现一个隐含的条件，
+如果要和多于一个的条件关联的时候，就不得不额外地添加一个锁，而ReentrantLock则无须这样做，只需要多次调用newCondition（）方法即可。
  
 LockSupport与ReentrantLock的区别
  
