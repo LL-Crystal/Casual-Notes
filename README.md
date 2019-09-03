@@ -62,6 +62,10 @@ Redis
 
 ## 操作系统
 
+* [**常用命令**](操作系统/linux/command.md)
+
+* [**linux共享目录之samba服务**](操作系统/linux/samba.md)
+
 ## 计算机网络
 
 ## 数据结构
