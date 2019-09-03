@@ -52,6 +52,8 @@ Hive
 
 Mysql
 
+* [**Mysql常用命令**](数据库/mysql/mysql_command.md)
+
 * [**Mysql慢查询优化**](数据库/mysql/mysql_optimization.md)
 
 Redis
