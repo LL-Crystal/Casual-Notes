@@ -95,17 +95,20 @@ Heap结构可以看出堆结构划分：年轻代，老年代，以及永久代
 ### 监控
 
 - jstat -gcutil pid/vmid interval
+
 ```
 jstat -gcutil 1 1000
 ```
 
 - jstack -l pid >> file
+
 ```
 // 进程堆栈打印
 jstack -l 17989 >> 123.txt
 ```
 
 - 虚拟机配置参数 (-verbose:gc是-XX:+PrintGC的别名)
+
 ```
 -XX:+PrintGCDetails(默认) 
 -XX:+PrintGCTimeStamps
@@ -115,24 +118,20 @@ jstack -l 17989 >> 123.txt
 ```
 
 - jmap -heap pid
+
 ```
 jmap -heap 790891
 ```
 
 - jvisualvm
+
 ```
-// 新建文件
-jstatd.all.policy
-
-// 内容
-grant codebase "file:/usr/java/default/lib/tools.jar" {  
-   permission java.security.AllPermission;  
+jstatd.all.policy // 新建文件
+grant codebase "file:/usr/java/default/lib/tools.jar" { // 内容
+   permission java.security.AllPermission; 
 };
-
-// 启动
-jstatd -J-Djava.security.policy=jstatd.all.policy -J-Djava.rmi.server.hostname=ip
-
-运行bin/jconsole.exe, 远程连接上一步的ip即可进行监控
+jstatd -J-Djava.security.policy=jstatd.all.policy -J-Djava.rmi.server.hostname=ip // 启动
+bin/jconsole.exe // 运行, 远程连接上一步的ip即可进行监控
 ```
 
 调优-堆参数
