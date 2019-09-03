@@ -82,39 +82,65 @@ Heap结构可以看出堆结构划分：年轻代，老年代，以及永久代
 
 ### 各种垃圾收集器的比较
 
-|  名称   | 应用范围  |  算法   | 运行方式  |
-|  :----  | :----  |  :----  | :----  |
-| Serial  | Young Gen | 复制  | 串行，单线程 |
-| ParNew  | Young Gen | 复制  | 并行，多线程 |
-| Parallel Scavenge  | Young Gen | 复制  | 并行，多线程 |
-| Serial Old  | Old Gen | 标记-整理  | 串行，单线程 |
-| Parallel Old  | Old Gen | 标记-整理   | 并行，多线程 |
-| CMS  | Old Gen | 标记-清除  | 并行，多线程 |
-| G1  | - | G1  | 并行，多线程 |
+| 名称 | 应用范围 | 算法 | 运行方式 |
+| :---- | :---- | :---- | :---- |
+| Serial | Young Gen | 复制 | 串行，单线程 |
+| ParNew | Young Gen | 复制 | 并行，多线程 |
+| Parallel Scavenge | Young Gen | 复制 | 并行，多线程 |
+| Serial Old | Old Gen | 标记-整理 | 串行，单线程 |
+| Parallel Old | Old Gen | 标记-整理 | 并行，多线程 |
+| CMS | Old Gen | 标记-清除 | 并行，多线程 |
+| G1 | - | G1 | 并行，多线程 |
 
 ### 监控
 
-- jstat –gcutil [pid|vmid]
-
-- -verbose:gc
+- jstat -gcutil pid/vmid interval
 ```
--XX:+PrintGCDetails(默认) -XX:+PrintGCTimeStamps
--XX:+PrintHeapAtGC -XX:+PrintGCDateStamps -Xloggc:/path/to/log
+jstat -gcutil 1 1000
 ```
 
-- jmap –heap [pid]
+- jstack -l pid >> file
+```
+// 进程堆栈打印
+jstack -l 17989 >> 123.txt
+```
+
+- 虚拟机配置参数 (-verbose:gc是-XX:+PrintGC的别名)
+```
+-XX:+PrintGCDetails(默认) 
+-XX:+PrintGCTimeStamps
+-XX:+PrintHeapAtGC 
+-XX:+PrintGCDateStamps 
+-Xloggc:/path/to/log
+```
+
+- jmap -heap pid
+```
+jmap -heap 790891
+```
 
 - jvisualvm
 ```
-// 远程连接
--Dcom.sun.management.jmxremote.port=60001 
--Dcom.sun.management.jmxremote.authenticate=false 
--Dcom.sun.management.jmxremote.ssl=false
+// 新建文件
+jstatd.all.policy
+
+// 内容
+grant codebase "file:/usr/java/default/lib/tools.jar" {  
+   permission java.security.AllPermission;  
+};
+
+// 启动
+jstatd -J-Djava.security.policy=jstatd.all.policy -J-Djava.rmi.server.hostname=ip
+
+运行bin/jconsole.exe, 远程连接上一步的ip即可进行监控
 ```
 
 调优-堆参数
 
-
+| Classification   | Option  |  Description |
+| :----  | :----  |  :----  |
+| Heap area size  | -Xms， -Xmx | Heap area size when starting JVM， Maximum heap area size |
+| New area size  | -XX:NewRatio， -XX:NewSize， -XX:SurvivorRatio | Ratio of New area and Old area， New area size， Ratio of Eden area and Survivor area |
 
 参考文档：
 
