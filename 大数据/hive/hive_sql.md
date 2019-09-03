@@ -11,11 +11,13 @@
 
 Metastore和Compiler是Hive的两个核心的模块
 
-> Metastore – The component that stores all the structure information of the various tables and partitions in the warehouse including column and column type information, the serializers and deserializers necessary to read and write data and the corresponding HDFS files where the data is stored.
+> Metastore 
+– The component that stores all the structure information of the various tables and partitions in the warehouse including column and column type information, the serializers and deserializers necessary to read and write data and the corresponding HDFS files where the data is stored.
 ---
 存储仓库中各种表和分区的所有结构信息的组件，包括列和列类型信息，读取和写入数据所需的序列化程序和反序列化程序以及存储数据的相应HDFS文件。
 
-> HiveServer2 (HS2) is a server interface that enables remote clients to execute queries against Hive and retrieve the results (a more detailed intro here). 
+> HiveServer2 
+(HS2) is a server interface that enables remote clients to execute queries against Hive and retrieve the results (a more detailed intro here). 
 ---
 HiveServer2（HS2）是一个服务端接口，使远程客户端可以执行对Hive的查询并返回结果。
 
