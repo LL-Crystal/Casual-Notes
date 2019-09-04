@@ -48,6 +48,10 @@ Hive
 
 * [**HiveSQL解析原理**](大数据/hive/hive_sql.md)
 
+RabbitMQ
+
+* [**消息队列RabbitMQ**](大数据/mq/mq.md)
+
 ## 数据库
 
 Mysql
