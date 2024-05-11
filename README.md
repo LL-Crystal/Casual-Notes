@@ -32,14 +32,13 @@
 
 ### redis
 * [**Redis基础**](随记/redis/data_type.md)
-* [**Redis分布式锁的实现的讨论**](随记/redis/distributed_lock.md)
+* [**Redis分布式锁的轻量级实现(Java)**](随记/redis/distributed_lock.md)
 
 ### 大数据
 #### es
 * [**Elasticsearch5.6源码编译与运行**](随记/大数据/es/source_code.md)
 * [**Elasticsearch常用命令**](随记/大数据/es/es_command.md)
 * [**快速理解Elasticsearch分片**](随记/大数据/es/es_shard_distribution.md)
-* [**Elasticsearch数据写入过程**](随记/大数据/es/es_data_write.md)
 * [**关于Elasticsearch调优的一些想法**](随记/大数据/es/es_jvm.md)
 #### hive
 * [**HiveSQL解析原理**](随记/大数据/hive/hive_sql.md)
